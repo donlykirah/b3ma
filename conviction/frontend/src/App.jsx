@@ -445,7 +445,8 @@ function App() {
               left: '50%',
               transform: 'translateX(-50%)',
               zIndex: 30,
-              width: '720px'
+             width: '90vw',
+maxWidth: '720px'
             }}
           >
             <Controls 
@@ -539,15 +540,15 @@ function App() {
       </AnimatePresence>
       
       {/* Vote Scales */}
-      <div style={{
-        position: 'fixed',
-        right: '32px',
-        top: '50%',
-        transform: 'translateY(-50%)',
-        zIndex: 20,
-        border-radius: '50px',
-        width: '340px'
-      }}>
+    <div style={{
+  position: 'fixed',
+  right: '16px',
+  top: '50%',
+  transform: 'translateY(-50%)',
+  zIndex: 20,
+  borderRadius: '50px',
+  width: 'min(340px, 28vw)'
+}}>
         <VoteScales votes={currentDebate?.votes || { BUY: 0, HOLD: 0, REDUCE: 0 }} txHash={txHash} />
       </div>
       

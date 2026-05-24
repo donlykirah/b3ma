@@ -37,10 +37,10 @@ function Controls({ onStartDebate, isDebating, onClose,  onSubmitCustom }) {
         onClick={onClose}
         style={{
           position: 'absolute',
-          top: '-12px',
-          right: '-12px',
-          width: '36px',
-          height: '36px',
+          top: '-8px',
+right: '-8px',
+width: '32px',
+height: '32px',
           borderRadius: '50%',
           backgroundColor: '#1a1a1a',
           border: '2px solid rgba(255,193,7,0.5)',
