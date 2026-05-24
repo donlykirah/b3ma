@@ -24,10 +24,11 @@ function App() {
   
   const [isControlsOpen, setIsControlsOpen] = useState(true);
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  
+  // Payment simulation state - ONLY ONE DECLARATION EACH
+  const [showPaymentSimulation, setShowPaymentSimulation] = useState(false);
   const [pendingQuestion, setPendingQuestion] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
-  const [paymentError, setPaymentError] = useState(null);
   
   const audioRef = useRef(null);
   const eventSourceRef = useRef(null);
@@ -103,111 +104,89 @@ function App() {
     }
   };
 
-  // Start PAID custom debate
-  const startCustomDebate = async (question, paymentIntentId) => {
-    setDebateActive(true);
-    setSteps([]);
-    setCurrentDebate(null);
-    setTxHash(null);
-    setIsTranscriptOpen(true);
-    
-    try {
-      const response = await api.post('/debate/custom', { 
-        question, 
-        paymentIntentId,
-        amount: 2000
-      });
-      
-      const { debateId } = response.data;
-      
-      if (eventSourceRef.current) eventSourceRef.current.close();
-      
-      const eventSource = new EventSource(`${BACKEND_URL}/api/debate/stream/${debateId}`);
-      eventSourceRef.current = eventSource;
-      
-      eventSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        
-        if (data.type === 'step') {
-          setSteps(prev => [...prev, data.step]);
-          setCurrentSpeaker(data.step.agent);
-          setActiveLight(data.step.agent);
-          setTimeout(() => setActiveLight(null), 3000);
-        } else if (data.type === 'complete') {
-          setCurrentDebate(data.debate);
-          setTxHash(data.debate.txHash);
-          setDebateActive(false);
-          setCurrentSpeaker(null);
-          
-          if (data.debate.decision === 'BUY') {
-            setShowConfetti(true);
-            playGavel();
-            setTimeout(() => setShowConfetti(false), 3000);
-          } else {
-            playGavel();
-          }
-          
-          eventSource.close();
-        }
-      };
-      
-      eventSource.onerror = () => {
-        setDebateActive(false);
-        eventSource.close();
-      };
-      
-    } catch (error) {
-      console.error('Custom debate failed:', error);
-      setDebateActive(false);
-    }
-  };
-
-  // Handle custom motion submission
-  const handleCustomMotion = async (question) => {
+  // Handle custom motion submission - shows payment modal
+  const handleCustomMotion = (question) => {
     if (!question.trim() || debateActive) return;
     setPendingQuestion(question);
-    setShowPaymentModal(true);
+    setShowPaymentSimulation(true);
   };
 
-  // WORKING PAYMENT PROCESSING
-  const processPayment = async () => {
+  // Process simulated payment and start custom debate
+  const processSimulatedPayment = () => {
     setProcessingPayment(true);
-    setPaymentError(null);
     
-    try {
-      // Create payment intent
-      const response = await api.post('/payment/create', { 
-        question: pendingQuestion 
-      });
+    setTimeout(async () => {
+      setShowPaymentSimulation(false);
+      setProcessingPayment(false);
       
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Payment creation failed');
+      const assetMatch = pendingQuestion.match(/BTC|ETH|SOL/i);
+      const asset = assetMatch ? assetMatch[0] : 'BTC';
+      
+      setDebateActive(true);
+      setSteps([]);
+      setCurrentDebate(null);
+      setTxHash(null);
+      setIsTranscriptOpen(true);
+      
+      try {
+        const response = await api.post('/debate/start', { 
+          asset, 
+          amount: 2000,
+          customQuestion: pendingQuestion 
+        });
+        
+        const { debateId } = response.data;
+        
+        if (eventSourceRef.current) eventSourceRef.current.close();
+        
+        const eventSource = new EventSource(`${BACKEND_URL}/api/debate/stream/${debateId}`);
+        eventSourceRef.current = eventSource;
+        
+        eventSource.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'step') {
+            setSteps(prev => [...prev, data.step]);
+            setCurrentSpeaker(data.step.agent);
+            setActiveLight(data.step.agent);
+            setTimeout(() => setActiveLight(null), 3000);
+          } else if (data.type === 'complete') {
+            setCurrentDebate(data.debate);
+            setTxHash(data.debate.txHash);
+            setDebateActive(false);
+            setCurrentSpeaker(null);
+            
+            if (data.debate.decision === 'BUY') {
+              setShowConfetti(true);
+              playGavel();
+              setTimeout(() => setShowConfetti(false), 3000);
+            } else {
+              playGavel();
+            }
+            
+            eventSource.close();
+          }
+        };
+        
+        eventSource.onerror = () => {
+          setDebateActive(false);
+          eventSource.close();
+        };
+        
+      } catch (error) {
+        console.error('Custom debate failed:', error);
+        setDebateActive(false);
+        alert('Failed to start debate. Please try again.');
       }
       
-      const { paymentIntentId } = response.data;
-      
-      // Simulate payment processing (1.5 seconds - feels real)
-      setTimeout(async () => {
-        // Payment successful
-        setShowPaymentModal(false);
-        setProcessingPayment(false);
-        
-        // Start the custom debate
-        await startCustomDebate(pendingQuestion, paymentIntentId);
-        setPendingQuestion('');
-      }, 1500);
-      
-    } catch (err) {
-      console.error('Payment setup failed:', err);
-      setPaymentError(err.message || 'Unable to process payment');
-      setProcessingPayment(false);
-    }
+      setPendingQuestion('');
+    }, 1500);
   };
 
-  const cancelPayment = () => {
-    setShowPaymentModal(false);
+  // Cancel payment simulation
+  const cancelPaymentSimulation = () => {
+    setShowPaymentSimulation(false);
     setPendingQuestion('');
-    setPaymentError(null);
     setProcessingPayment(false);
   };
 
@@ -253,109 +232,84 @@ function App() {
   }, []);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden">
+    <div
+  className="relative w-screen h-screen overflow-hidden"
+  style={{
+    zoom: window.innerWidth < 1600 ? 0.82 : 1
+  }}
+>
       <audio ref={audioRef} preload="auto" style={{ display: 'none' }} />
-      
-      {/* Payment Modal */}
-      <AnimatePresence>
-        {showPaymentModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 100,
-              backgroundColor: 'rgba(0,0,0,0.8)',
-              backdropFilter: 'blur(10px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-            onClick={cancelPayment}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              style={{
-                backgroundColor: 'rgba(0,0,0,0.95)',
-                backdropFilter: 'blur(20px)',
-                borderRadius: '24px',
-                padding: '32px',
-                border: '1px solid rgba(255,193,7,0.3)',
-                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
-                width: '400px',
-                textAlign: 'center'
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>💰</div>
-              <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '8px' }}>Custom Motion Fee</h3>
-              <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#fbbf24', marginBottom: '16px' }}>
-                $0.50 USDC
-              </p>
-              <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '24px' }}>
-                "{pendingQuestion.substring(0, 80)}"
-              </p>
-              
-              {paymentError && (
-                <div style={{ color: '#ff3366', fontSize: '12px', marginBottom: '16px', padding: '8px', backgroundColor: 'rgba(255,51,102,0.1)', borderRadius: '8px' }}>
-                  {paymentError}
-                </div>
-              )}
-              
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button
-                  onClick={cancelPayment}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    backgroundColor: 'rgba(255,255,255,0.1)',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    borderRadius: '12px',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontFamily: 'monospace'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={processPayment}
-                  disabled={processingPayment}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                    border: 'none',
-                    borderRadius: '12px',
-                    color: 'black',
-                    fontWeight: 'bold',
-                    cursor: processingPayment ? 'wait' : 'pointer',
-                    opacity: processingPayment ? 0.7 : 1,
-                    fontFamily: 'monospace'
-                  }}
-                >
-                  {processingPayment ? (
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                      <div style={{ width: '16px', height: '16px', border: '2px solid black', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                      PROCESSING...
-                    </span>
-                  ) : (
-                    'Pay $0.50 USDC'
-                  )}
-                </button>
+     
+ {/* Payment Simulation Modal - FIXED with actual padding */}
+<AnimatePresence>
+  {showPaymentSimulation && (
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      onClick={cancelPaymentSimulation}
+    >
+      <div 
+        className="bg-black/95 rounded-2xl border border-amber-500/30 w-[380px] shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {!processingPayment ? (
+          <div className="p-8">
+            {/* Header */}
+            <div className="text-center">
+              <div className="text-6xl mb-5">💰</div>
+              <h3 className="text-2xl font-bold text-white mb-2">Custom Motion</h3>
+              <p className="text-sm text-white/50">Have our AI agents debate your question</p>
+            </div>
+            
+            {/* Price */}
+            <div className="text-center my-8 py-4 border-y border-white/10 bg-white/5 -mx-8 px-8">
+              <div className="text-2xl font-bold text-amber-400">$0.50 USD</div>
+              <p className="text-xs text-white/40 mt-2">One-time payment • No subscription</p>
+            </div>
+            
+            {/* Question Preview */}
+            <div className="mb-8">
+              <div className="bg-white/5 rounded-xl p-5 border border-white/10">
+                <p className="text-xs text-white/40 uppercase tracking-wider mb-3">Your Question</p>
+                <p className="text-base text-white/90 leading-relaxed break-words">
+                  "{pendingQuestion.substring(0, 80)}"
+                  {pendingQuestion.length > 80 && "..."}
+                </p>
               </div>
-              
-              <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginTop: '16px' }}>
-                Demo Mode • No actual charge • Simulated payment
-              </p>
-            </motion.div>
-          </motion.div>
+            </div>
+            
+            {/* Buttons */}
+            <div className="flex gap-4 mb-6">
+              <button 
+                onClick={cancelPaymentSimulation}
+                className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-medium transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={processSimulatedPayment}
+                className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 rounded-xl text-black font-bold transition-all shadow-lg"
+              >
+                Pay $0.50
+              </button>
+            </div>
+            
+            {/* Footer */}
+            <div className="text-center">
+              <p className="text-[11px] text-white/30">Demo Mode • Simulated payment • No actual charge</p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-12 text-center">
+            <div className="w-20 h-20 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
+            <h3 className="text-xl font-bold text-white mb-3">Processing Payment</h3>
+            <p className="text-sm text-white/50">Please wait while we confirm your transaction...</p>
+            <p className="text-xs text-white/30 mt-6">This is a simulated payment for demo purposes</p>
+          </div>
         )}
-      </AnimatePresence>
+      </div>
+    </div>
+  )}
+</AnimatePresence>
       
       <Suspense fallback={<div className="fixed inset-0 bg-black flex items-center justify-center text-white/50">Loading 3D Chamber...</div>}>
         <SenateChamber activeLight={activeLight} currentSpeaker={currentSpeaker} />
@@ -373,9 +327,9 @@ function App() {
         animate={{ y: 0 }}
         className="fixed top-0 left-0 right-0 z-20 bg-black/60 backdrop-blur-xl border-b border-white/10"
       >
-        <div className="max-w-7xl mx-auto px-10 py-5 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-amber-400 to-yellow-500 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-400 to-yellow-500 bg-clip-text text-transparent">
               BEMA
             </h1>
             <p className="text-xs text-amber-400/60 mt-1">SENATE CHAMBER · ARC L1</p>
@@ -445,8 +399,8 @@ function App() {
               left: '50%',
               transform: 'translateX(-50%)',
               zIndex: 30,
-             width: '90vw',
-maxWidth: '720px'
+            width: 'min(540px, calc(100vw - 24px))',
+maxWidth: '540px'
             }}
           >
             <Controls 
@@ -525,8 +479,8 @@ maxWidth: '720px'
               bottom: '32px',
               left: '120px',
               zIndex: 30,
-              width: 'calc(100% - 500px)',
-              maxWidth: '800px'
+              width: 'min(520px, calc(100vw - 180px))',
+maxWidth: '520px'
             }}
           >
             <DebateTranscript3D 
@@ -540,17 +494,9 @@ maxWidth: '720px'
       </AnimatePresence>
       
       {/* Vote Scales */}
-    <div style={{
-  position: 'fixed',
-  right: '16px',
-  top: '50%',
-  transform: 'translateY(-50%)',
-  zIndex: 20,
-  borderRadius: '50px',
-  width: 'min(340px, 28vw)'
-}}>
-        <VoteScales votes={currentDebate?.votes || { BUY: 0, HOLD: 0, REDUCE: 0 }} txHash={txHash} />
-      </div>
+   <div className="fixed right-4 top-[28%] z-20 w-[300px] max-w-[24vw] xl:w-[320px] xl:max-w-[320px] lg:block hidden">
+  <VoteScales votes={currentDebate?.votes || { BUY: 0, HOLD: 0, REDUCE: 0 }} txHash={txHash} />
+</div>
       
       {/* Share Button */}
       {currentDebate && (

@@ -24,14 +24,16 @@ function Controls({ onStartDebate, isDebating, onClose,  onSubmitCustom }) {
   
   return (
     <div style={{
-      backgroundColor: 'rgba(0,0,0,0.85)',
-      backdropFilter: 'blur(20px)',
-      borderRadius: '16px',
-      padding: '24px',
-      border: '1px solid rgba(255,193,7,0.3)',
-      boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
-      position: 'relative'
-    }}>
+  backgroundColor: 'rgba(0,0,0,0.85)',
+  backdropFilter: 'blur(20px)',
+  borderRadius: '16px',
+  padding: '14px',
+  border: '1px solid rgba(255,193,7,0.3)',
+  boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+  position: 'relative',
+  width: '100%',
+  boxSizing: 'border-box'
+}}>
       {/* Close Button - Top Right Corner, far from content */}
       <button
         onClick={onClose}
@@ -45,7 +47,7 @@ height: '32px',
           backgroundColor: '#1a1a1a',
           border: '2px solid rgba(255,193,7,0.5)',
           color: '#fbbf24',
-          fontSize: '18px',
+          fontSize: '12px',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -68,7 +70,11 @@ height: '32px',
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {/* Asset Selectors */}
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ 
+  display: 'grid', 
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', 
+  gap: '12px' 
+}}>
           {assets.map(asset => (
             <motion.button
               key={asset.symbol}
@@ -109,7 +115,7 @@ height: '32px',
           disabled={isDebating}
           style={{
             width: '100%',
-            padding: '14px',
+            padding: '10px',
             borderRadius: '12px',
             fontWeight: 'bold',
             fontFamily: 'monospace',

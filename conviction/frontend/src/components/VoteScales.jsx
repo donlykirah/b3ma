@@ -38,10 +38,12 @@ function VoteScales({ votes }) {
       backgroundColor: 'rgba(0,0,0,0.7)',
       backdropFilter: 'blur(20px)',
       borderRadius: '1.5rem',
-      padding: '16px',
+      padding: '12px',
       border: '1px solid rgba(255,193,7,0.3)',
       boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
-      width: '320px'
+      width: '100%',
+maxWidth: '250px',
+boxSizing: 'border-box'
     }}>
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
         <div style={{ fontSize: '0.7rem', color: '#fbbf24', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
