@@ -15,6 +15,11 @@ const activeDebates = new Map();
 let debateHistory = [];
 let treasuryBalance = 10000.00;
 
+// Root route for Render health check
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Conviction Backend API is running' });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
